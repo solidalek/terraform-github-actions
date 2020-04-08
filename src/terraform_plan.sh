@@ -7,6 +7,9 @@ function terraformPlan {
   planExitCode=${?}
   planHasChanges=false
   planCommentStatus="Failed"
+  planOutputFile="${tfWorkingDir}/plan.txt"
+  touch "${planOutputFile}"
+  echo "::set-output name=tf_actions_plan_output_file::${planOutputFile}"
 
   # Exit code of 0 indicates success with no changes. Print the output and exit.
   if [ ${planExitCode} -eq 0 ]; then
@@ -30,6 +33,9 @@ function terraformPlan {
         planOutput=$(echo "${planOutput}" | sed -n -r '/-{72}/,/-{72}/{ /-{72}/d; p }')
     fi
     planOutput=$(echo "${planOutput}" | sed -r -e 's/^  \+/\+/g' | sed -r -e 's/^  ~/~/g' | sed -r -e 's/^  -/-/g')
+
+    # Save full plan output to a file so it can optionally be added as an artifact
+    echo "${planOutput}" > "${planOutputFile}"
 
      # If output is longer than max length (65536 characters), keep last part
     planOutput=$(echo "${planOutput}" | tail -c 65000 )

@@ -7,6 +7,9 @@ function terraformPlan {
   planExitCode=${?}
   planHasChanges=false
   planCommentStatus="Failed"
+  planOutputFile="${tfWorkingDir}/plan.txt"
+  touch "${planOutputFile}"
+  echo "::set-output name=tf_actions_plan_output_file::${planOutputFile}"
 
   # Exit code of 0 indicates success with no changes. Print the output and exit.
   if [ ${planExitCode} -eq 0 ]; then
@@ -31,6 +34,9 @@ function terraformPlan {
     fi
     planOutput=$(echo "${planOutput}" | sed -r -e 's/^  \+/\+/g' | sed -r -e 's/^  ~/~/g' | sed -r -e 's/^  -/-/g')
 
+    # Save full plan output to a file so it can optionally be added as an artifact
+    echo "${planOutput}" > "${planOutputFile}"
+
      # If output is longer than max length (65536 characters), keep last part
     planOutput=$(echo "${planOutput}" | tail -c 65000 )
   fi
@@ -43,7 +49,7 @@ function terraformPlan {
   fi
 
   # Comment on the pull request if necessary.
-  if [ "$GITHUB_EVENT_NAME" == "pull_request" ] && [ "${tfComment}" == "1" ] && ([ "${planHasChanges}" == "true" ] || [ "${planCommentStatus}" == "Failed" ]); then
+  if [ "${tfComment}" == "1" ] && [ -n "${tfCommentUrl}" ] && ([ "${planHasChanges}" == "true" ] || [ "${planCommentStatus}" == "Failed" ]); then
     planCommentWrapper="#### \`terraform plan\` ${planCommentStatus}
 <details><summary>Show Output</summary>
 
@@ -58,9 +64,8 @@ ${planOutput}
     planCommentWrapper=$(stripColors "${planCommentWrapper}")
     echo "plan: info: creating JSON"
     planPayload=$(echo "${planCommentWrapper}" | jq -R --slurp '{body: .}')
-    planCommentsURL=$(cat ${GITHUB_EVENT_PATH} | jq -r .pull_request.comments_url)
     echo "plan: info: commenting on the pull request"
-    echo "${planPayload}" | curl -s -S -H "Authorization: token ${GITHUB_TOKEN}" --header "Content-Type: application/json" --data @- "${planCommentsURL}" > /dev/null
+    echo "${planPayload}" | curl -s -S -H "Authorization: token ${GITHUB_TOKEN}" --header "Content-Type: application/json" --data @- "${tfCommentUrl}" > /dev/null
   fi
 
   echo ::set-output name=tf_actions_plan_has_changes::${planHasChanges}

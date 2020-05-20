@@ -28,6 +28,9 @@ inputs:
   tf_actions_fmt_write:
     description: 'Write Terraform fmt changes to source files.'
     default: false
+  args:
+    description: 'Additional arguments to be appended after the subcommand and all flags'
+    default: ''
 outputs:
   tf_actions_output:
     description: 'The Terraform outputs in JSON format.'
